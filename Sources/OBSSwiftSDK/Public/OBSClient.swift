@@ -3,7 +3,7 @@ import Foundation
 /// The main client for interacting with Huawei Cloud OBS.
 /// This class is thread-safe.
 @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-public final class OBSClient {
+public actor OBSClient {
     private let configuration: OBSConfiguration
     private var apiClient: OBSAPIClient
     private var signer: OBSRequestSigner
@@ -144,17 +144,5 @@ public final class OBSClient {
         
         // 如果成功，从响应头中提取信息并构造 UploadResponse
         return UploadResponse(from: httpResponse)
-    }
-}
-
-
-@available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-extension OBSClient {
-    internal convenience init(
-        configuration: OBSConfiguration,
-        apiClient: OBSAPIClient // 允许注入 apiClient
-    ) {
-        self.init(configuration: configuration)
-        self.apiClient = apiClient
     }
 }

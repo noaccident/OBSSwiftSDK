@@ -109,8 +109,7 @@ internal final class OBSRequestSigner {
         \(contentMD5)
         \(contentType)
         \(date)
-        \(canonicalizedHeaders)
-        \(canonicalizedResource)
+        \(canonicalizedHeaders)\(canonicalizedResource)
         """
 
         return stringToSign

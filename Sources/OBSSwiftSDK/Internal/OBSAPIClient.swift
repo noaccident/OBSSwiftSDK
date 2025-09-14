@@ -4,7 +4,7 @@ typealias AsyncThrowingRequestHandler = () async throws -> (Data, URLResponse)
 
 /// Internal client for handling network requests, including retry logic.
 @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
-internal final class OBSAPIClient {
+internal actor OBSAPIClient {
     private let session: URLSession
     private let maxRetryCount: Int
     // TODO 为什么这里要加logger

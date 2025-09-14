@@ -74,4 +74,8 @@ public struct OBSErrorResponse: Equatable, Sendable {
     public let message: String
     public let requestId: String
     public let hostId: String
+
+    public func toString() -> String {
+        return "Error \(code): \(message) (RequestID: \(requestId), HostID: \(hostId))"
+    }
 }

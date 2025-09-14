@@ -17,7 +17,7 @@ public final class OBSConfiguration {
         credentialsProvider: OBSCredentialsProvider,
         useSSL: Bool = true,
         maxRetryCount: Int = 3,
-        logLevel: OBSLogger.Level = .none
+        logLevel: OBSLogger.Level
     ) {
         self.endpoint = endpoint
         self.credentialsProvider = credentialsProvider
