@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents errors that can occur during OBS operations.
-public enum OBSError: Error, LocalizedError {
+public enum OBSError: Error, LocalizedError, Equatable {
     /// The provided configuration was invalid (e.g., bad endpoint URL).
     case invalidConfiguration(String)
     
@@ -11,21 +11,22 @@ public enum OBSError: Error, LocalizedError {
     /// The constructed URL for the request was invalid.
     case invalidURL(String)
 
+    /// An error occurred while accessing a local file (e.g., file not found, permission denied).
     case fileAccessError(path: String, underlyingError: Error)
     
-    /// An underlying network error occurred (e.g., no internet connection).
+    /// An underlying network error occurred (e.g., no internet connection, DNS failure).
     case networkError(underlyingError: Error)
     
-    /// The server responded with a non-successful HTTP status code.
+    /// The server responded with a non-successful HTTP status code (i.e., not in the 200-299 range).
     case httpError(statusCode: Int, response: OBSErrorResponse?)
     
     /// The server's response could not be decoded.
     case responseDecodingFailed(String)
 
-    /// An unexpected internal error occurred.
+    /// An unexpected internal error occurred within the SDK.
     case internalError(String)
 
-    // 如何定义错误
+    /// An unknown or unexpected error occurred.
     case unknown(String)
     
     public var errorDescription: String? {
@@ -49,30 +50,46 @@ public enum OBSError: Error, LocalizedError {
             return "Response Decoding Failed: \(reason)"
         case.internalError(let message):
             return "Internal SDK Error: \(message)"
-        case .unknown(let reason):
+        case.unknown(let reason):
             return "An unknown error occurred: \(reason)"
         }
     }
     
-    // public static func == (lhs: OBSError, rhs: OBSError) -> Bool {
-    //     switch (lhs, rhs) {
-    //     case (.invalidConfiguration(let a),.invalidConfiguration(let b)): return a == b
-    //     case (.signatureGenerationFailed(let a),.signatureGenerationFailed(let b)): return a == b
-    //     case (.invalidURL(let a),.invalidURL(let b)): return a == b
-    //     case (.networkError(let a),.networkError(let b)): return a == b
-    //     case (.httpError(let sc1, let r1),.httpError(let sc2, let r2)): return sc1 == sc2 && r1 == r2
-    //     case (.responseDecodingFailed(let a),.responseDecodingFailed(let b)): return a == b
-    //     case (.internalError(let a),.internalError(let b)): return a == b
-    //     default: return false
-    //     }
-    // }
+    public static func == (lhs: OBSError, rhs: OBSError) -> Bool {
+        switch (lhs, rhs) {
+        case (.invalidConfiguration(let a),.invalidConfiguration(let b)):
+            return a == b
+        case (.signatureGenerationFailed(let a),.signatureGenerationFailed(let b)):
+            return a == b
+        case (.invalidURL(let a),.invalidURL(let b)):
+            return a == b
+        case (.fileAccessError(let path1, let error1),.fileAccessError(let path2, let error2)):
+            return path1 == path2 && error1.localizedDescription == error2.localizedDescription
+        case (.networkError(let a),.networkError(let b)):
+            return a.localizedDescription == b.localizedDescription
+        case (.httpError(let sc1, let r1),.httpError(let sc2, let r2)):
+            return sc1 == sc2 && r1 == r2
+        case (.responseDecodingFailed(let a),.responseDecodingFailed(let b)):
+            return a == b
+        case (.internalError(let a),.internalError(let b)):
+            return a == b
+        case (.unknown(let a),.unknown(let b)):
+            return a == b
+        default:
+            return false
+        }
+    }
 }
 
 /// Represents the structured error response from the OBS service (parsed from XML).
 public struct OBSErrorResponse: Equatable, Sendable {
+    /// The OBS-specific error code (e.g., "NoSuchBucket").
     public let code: String
+    /// A human-readable message providing more details about the error.
     public let message: String
+    /// A unique identifier for the request, useful for support inquiries.
     public let requestId: String
+    /// The ID of the host that processed the request.
     public let hostId: String
 
     public func toString() -> String {

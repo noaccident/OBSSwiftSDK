@@ -1,7 +1,10 @@
 import Foundation
 
 /// The main client for interacting with Huawei Cloud OBS.
-/// This class is thread-safe.
+///
+/// This class provides methods to upload objects from memory or local files.
+/// As an `actor`, all of its methods are thread-safe and can be called concurrently
+/// without requiring external synchronization.
 @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
 public actor OBSClient {
     private let configuration: OBSConfiguration
@@ -10,7 +13,9 @@ public actor OBSClient {
     private let logger: OBSLogger
 
     /// Initializes a new OBS client with the specified configuration.
-    /// - Parameter configuration: The configuration object containing endpoint, credentials, and other settings.
+    /// - Parameters:
+    ///   - configuration: The configuration object containing the endpoint, credentials, and other settings.
+    ///   - apiClient: An optional custom API client for testing purposes. If `nil`, a default client will be created.
     public init(
         configuration: OBSConfiguration,
         apiClient: OBSAPIClientProtocol? = nil
@@ -29,12 +34,21 @@ public actor OBSClient {
     }
     
     /// Refreshes the client with new temporary credentials.
+    ///
+    /// This is useful when using temporary credentials (STS) that expire, allowing the client
+    /// to continue making authenticated requests with a new set of credentials.
+    /// - Parameter newCredentialsProvider: The new credentials provider, typically containing a new security token.
     public func refreshCredentials(with newCredentialsProvider: OBSCredentialsProvider) {
         self.signer = OBSRequestSigner(credentialsProvider: newCredentialsProvider)
         logger.info("Credentials refreshed successfully.")
     }
     
-    /// Uploads an object to OBS from an in-memory Data buffer.
+    /// Uploads an object to OBS from an in-memory `Data` buffer.
+    ///
+    /// - Parameter request: An `UploadObjectRequest` containing the bucket name, object key, data, and other optional parameters.
+    /// - Throws: An `OBSError` if the request fails. This can be due to network issues (`.networkError`),
+    ///   server-side errors (`.httpError`), invalid configuration (`.invalidURL`), or other issues.
+    /// - Returns: An `UploadResponse` containing details about the successful upload, such as the ETag and version ID.
     public func uploadObject(request: UploadObjectRequest) async throws -> UploadResponse {
         var urlRequest = try buildBaseRequest(for: request)
         
@@ -43,26 +57,34 @@ public actor OBSClient {
         if let contentLength = request.contentLength {
             urlRequest.setValue("\(contentLength)", forHTTPHeaderField: "Content-Length")
         } else {
-            // 如果没有提供 Content-Length，尝试从 Data 获取长度
+            // If Content-Length is not provided, derive it from the Data buffer's count.
             urlRequest.setValue("\(request.data.count)", forHTTPHeaderField: "Content-Length")
         }
 
         let (responseData, httpResponse) = try await apiClient.perform(
             request: signedRequest,
-            body: .data(request.data)
+            body:.data(request.data)
         )
 
         return try processUploadResponse(responseData: responseData, httpResponse: httpResponse)
     }
 
-    /// Uploads an object to OBS from a local file path.
+    /// Uploads an object to OBS from a local file.
+    ///
+    /// This method efficiently streams the file from disk, avoiding loading the entire file into memory.
+    /// It also verifies the existence and readability of the file before starting the upload.
+    ///
+    /// - Parameter request: An `UploadFileRequest` containing the bucket name, object key, local file URL, and other optional parameters.
+    /// - Throws: An `OBSError`. Specifically, it can throw `.fileAccessError` if the file at `fileURL`
+    ///   cannot be read or its size cannot be determined. It can also throw other errors like `.networkError` or `.httpError`.
+    /// - Returns: An `UploadResponse` containing details about the successful upload.
     public func uploadFile(request: UploadFileRequest) async throws -> UploadResponse {
         var urlRequest = try buildBaseRequest(for: request)
         
         let fileSize: NSNumber
         
         do {
-            // 尝试获取文件属性。这一步同时验证了文件的存在性和读取权限。
+            // Attempt to get file attributes. This step also validates the file's existence and read permissions.
             let attributes = try FileManager.default.attributesOfItem(atPath: request.fileURL.path)
             
             if let providedLength = request.contentLength {
@@ -72,29 +94,29 @@ public actor OBSClient {
             } else {
                 throw OBSError.fileAccessError(
                     path: request.fileURL.path,
-                    underlyingError: NSError(domain: "OBSSDKError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not determine file size from attributes."])
+                    underlyingError: NSError(domain: "OBSSDKError", code: -1, userInfo: nil)
                 )
             }
         } catch {
-            // 捕获所有来自 FileManager 的错误 (如：文件不存在、无权限等)。
-            // 将底层的系统错误，包装成我们对外的、统一的 OBSError 类型。
+            // Catch all errors from FileManager (e.g., file not found, no permissions).
+            // Wrap the underlying system error into our public, unified OBSError type.
             throw OBSError.fileAccessError(path: request.fileURL.path, underlyingError: error)
-    }
+        }
 
         let signedRequest = try signer.sign(request: &urlRequest, for: request)
 
-        // 设置 Content-Length 头部。
+        // Set the Content-Length header.
         urlRequest.setValue(fileSize.stringValue, forHTTPHeaderField: "Content-Length")
 
         let (responseData, httpResponse) = try await apiClient.perform(
             request: signedRequest,
-            body: .file(request.fileURL)
+            body:.file(request.fileURL)
         )
 
         return try processUploadResponse(responseData: responseData, httpResponse: httpResponse)
     }
     
-    /// Builds a base URLRequest with common headers from a generic UploadRequest.
+    /// Builds a base `URLRequest` with common headers from a generic `UploadRequest`.
     private func buildBaseRequest(for request: any UploadRequest) throws -> URLRequest {
         let url = try buildURL(bucket: request.bucketName, key: request.objectKey)
         var urlRequest = URLRequest(url: url)
@@ -130,8 +152,8 @@ public actor OBSClient {
     
     private func buildURL(bucket: String, key: String) throws -> URL {
         let scheme = configuration.useSSL ? "https" : "http"
-        
-        let encodedKey = key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? key
+
+        let encodedKey = key.addingPercentEncoding(withAllowedCharacters:.urlPathAllowed) ?? key
         let urlString = "\(scheme)://\(bucket).\(configuration.endpoint)/\(encodedKey)"
         
         guard let url = URL(string: urlString) else {
@@ -141,12 +163,12 @@ public actor OBSClient {
     }
 
     private func processUploadResponse(responseData: Data, httpResponse: HTTPURLResponse) throws -> UploadResponse {
-        // 根据 HTTP 状态码判断请求是否成功
+        // Determine if the request was successful based on the HTTP status code.
         guard (200..<300).contains(httpResponse.statusCode) else {
             throw OBSError.httpError(statusCode: httpResponse.statusCode, response: OBSErrorXMLParser.parse(from: responseData))
         }
         
-        // 如果成功，从响应头中提取信息并构造 UploadResponse
+        // If successful, extract information from the response headers to construct the UploadResponse.
         return UploadResponse(from: httpResponse)
     }
 }

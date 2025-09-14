@@ -10,7 +10,7 @@ public struct OBSLogger: Sendable {
         case warning = 2
         /// Errors that might still allow the application to continue running.
         case error = 3
-        
+        /// No messages will be logged. Used to disable logging.
         case none = 4
         
         public static func < (lhs: OBSLogger.Level, rhs: OBSLogger.Level) -> Bool {
@@ -22,7 +22,7 @@ public struct OBSLogger: Sendable {
     let level: Level
 
     /// Initializes a new logger with a specified logging threshold.
-    /// - Parameter level: The minimum level of messages to log.
+    /// - Parameter level: The minimum level of messages to log. Defaults to `.none`.
     public init(level: Level = .none) {
         self.level = level
     }
@@ -30,32 +30,32 @@ public struct OBSLogger: Sendable {
     /// Logs a message at the debug level.
     /// - Parameter message: The message to log.
     public func debug(_ message: String) {
-        log(level: .debug, message: message)
+        log(level:.debug, message: message)
     }
 
     /// Logs a message at the info level.
     /// - Parameter message: The message to log.
     public func info(_ message: String) {
-        log(level: .info, message: message)
+        log(level:.info, message: message)
     }
     
     /// Logs a message at the warning level.
     /// - Parameter message: The message to log.
     public func warning(_ message: String) {
-        log(level: .warning, message: message)
+        log(level:.warning, message: message)
     }
     
     /// Logs a message at the error level.
     /// - Parameter message: The message to log.
     public func error(_ message: String) {
-        log(level: .error, message: message)
+        log(level:.error, message: message)
     }
 
     private func log(level messageLevel: Level, message: String) {
         // Only log messages that are at or above the configured threshold.
         if messageLevel >= self.level {
             // Using uppercased() for a cleaner log prefix.
-            print("[OBS-\(String(describing: messageLevel).uppercased())] \(message)")
+            print(" \(message)")
         }
     }
 }

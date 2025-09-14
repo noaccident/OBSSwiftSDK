@@ -1,8 +1,8 @@
 import Foundation
 
-/// The successful response from an upload operation.
+/// Represents the successful response from an upload operation.
 public struct UploadResponse: Sendable {
-    /// The ETag of the object, used for integrity checks.
+    /// The ETag of the object, which is a hash of the object used for integrity checks.
     public let eTag: String?
     /// The version ID of the object, if the bucket has versioning enabled.
     public let versionId: String?
@@ -10,6 +10,7 @@ public struct UploadResponse: Sendable {
     public let storageClass: String?
     /// The server-side encryption algorithm used, if any.
     public let serverSideEncryption: String?
+    /// The HTTP status code of the response (e.g., 200).
     public let statusCode: Int
     
     internal init(from response: HTTPURLResponse) {
