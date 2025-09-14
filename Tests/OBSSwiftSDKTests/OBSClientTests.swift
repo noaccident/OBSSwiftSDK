@@ -16,12 +16,15 @@ final class OBSClientTests: XCTestCase {
         
         // 创建一个使用模拟 session 的 OBSClient 实例
         let obsConfig = OBSConfiguration(
-            endpoint: MockData.endpoint, credentialsProvider: MockData.permanentCredentials,
+            endpoint: MockData.endpoint,
+            credentialsProvider: MockData.permanentCredentials,
+            logLevel: .none
         )
         // (注意：这里我们通过注入一个自定义的 apiClient 来使用模拟 session)
-        let apiClient = OBSAPIClient(session: mockSession, maxRetryCount: 0, logger: OBSLogger(level: .none))
+        let mockClient = OBSAPIClient(session: mockSession, maxRetryCount: 0, logger: OBSLogger(level: .none))
         
-        client = OBSClient(configuration: obsConfig, apiClient: apiClient)
+        client = OBSClient(configuration: obsConfig, apiClient: mockClient)
+        
     }
 
     override func tearDown() {
@@ -152,7 +155,7 @@ final class OBSClientTests: XCTestCase {
         _ = try await client.uploadObject(request: request)
         
         // 刷新凭证
-        client.refreshCredentials(with: MockData.temporaryCredentials)
+        await client.refreshCredentials(with: MockData.temporaryCredentials)
         
         // 第二次请求的 handler，期望收到新 AK 的签名
         MockURLProtocol.requestHandler = { req in

@@ -5,20 +5,23 @@ import Foundation
 @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
 public actor OBSClient {
     private let configuration: OBSConfiguration
-    private var apiClient: OBSAPIClient
+    private var apiClient: OBSAPIClientProtocol
     private var signer: OBSRequestSigner
     private let logger: OBSLogger
-    private let lock = NSLock()
 
     /// Initializes a new OBS client with the specified configuration.
     /// - Parameter configuration: The configuration object containing endpoint, credentials, and other settings.
-    public init(configuration: OBSConfiguration) {
+    public init(
+        configuration: OBSConfiguration,
+        apiClient: OBSAPIClientProtocol? = nil
+    ) {
+        let logger = OBSLogger(level: configuration.logLevel)
         self.configuration = configuration
-        self.logger = OBSLogger(level: configuration.logLevel)
-        self.apiClient = OBSAPIClient(
+        self.logger = logger
+        self.apiClient = apiClient ?? OBSAPIClient(
             session: URLSession(configuration:.default),
             maxRetryCount: configuration.maxRetryCount,
-            logger: self.logger
+            logger: logger
         )
         self.signer = OBSRequestSigner(
             credentialsProvider: configuration.credentialsProvider
@@ -27,8 +30,6 @@ public actor OBSClient {
     
     /// Refreshes the client with new temporary credentials.
     public func refreshCredentials(with newCredentialsProvider: OBSCredentialsProvider) {
-        lock.lock()
-        defer { lock.unlock() }
         self.signer = OBSRequestSigner(credentialsProvider: newCredentialsProvider)
         logger.info("Credentials refreshed successfully.")
     }
@@ -36,15 +37,19 @@ public actor OBSClient {
     /// Uploads an object to OBS from an in-memory Data buffer.
     public func uploadObject(request: UploadObjectRequest) async throws -> UploadResponse {
         var urlRequest = try buildBaseRequest(for: request)
-        urlRequest.httpMethod = "PUT"
-
-        // TODO 判断是否需要设置 Content-Length
-
+        
         let signedRequest = try signer.sign(request: &urlRequest, for: request)
 
-        let (responseData, httpResponse) = try await apiClient.performUpload(
+        if let contentLength = request.contentLength {
+            urlRequest.setValue("\(contentLength)", forHTTPHeaderField: "Content-Length")
+        } else {
+            // 如果没有提供 Content-Length，尝试从 Data 获取长度
+            urlRequest.setValue("\(request.data.count)", forHTTPHeaderField: "Content-Length")
+        }
+
+        let (responseData, httpResponse) = try await apiClient.perform(
             request: signedRequest,
-            from: request.data
+            body: .data(request.data)
         )
 
         return try processUploadResponse(responseData: responseData, httpResponse: httpResponse)
@@ -58,22 +63,18 @@ public actor OBSClient {
         
         do {
             // 尝试获取文件属性。这一步同时验证了文件的存在性和读取权限。
-            // 如果失败，会立即抛出错误并被下面的 catch 块捕获。
             let attributes = try FileManager.default.attributesOfItem(atPath: request.fileURL.path)
             
-            // 从属性中安全地提取文件大小。
-            guard let size = attributes[.size] as? NSNumber else {
-                // 这种情况很少见，但为了代码的健壮性，我们依然处理。
+            if let providedLength = request.contentLength {
+                fileSize = NSNumber(value: providedLength)
+            } else if let size = attributes[.size] as? NSNumber {
+                fileSize = size
+            } else {
                 throw OBSError.fileAccessError(
                     path: request.fileURL.path,
                     underlyingError: NSError(domain: "OBSSDKError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not determine file size from attributes."])
                 )
             }
-            fileSize = size
-            
-            // 文件有效，现在计算 MD5。
-            // request.contentMD5 = try Utilities.md5Base64(for: request.fileURL)
-
         } catch {
             // 捕获所有来自 FileManager 的错误 (如：文件不存在、无权限等)。
             // 将底层的系统错误，包装成我们对外的、统一的 OBSError 类型。
@@ -85,7 +86,10 @@ public actor OBSClient {
         // 设置 Content-Length 头部。
         urlRequest.setValue(fileSize.stringValue, forHTTPHeaderField: "Content-Length")
 
-        let (responseData, httpResponse) = try await apiClient.performUpload(request: signedRequest, fromFile: request.fileURL)
+        let (responseData, httpResponse) = try await apiClient.perform(
+            request: signedRequest,
+            body: .file(request.fileURL)
+        )
 
         return try processUploadResponse(responseData: responseData, httpResponse: httpResponse)
     }

@@ -38,7 +38,7 @@ final class OBSAPIClientTests: XCTestCase {
         let apiClient = OBSAPIClient(session: mockSession, maxRetryCount: maxRetries, logger: OBSLogger(level: .none))
         
         // 执行请求
-        _ = try await apiClient.performUpload(request: URLRequest(url: url), from: Data())
+        _ = try await apiClient.perform(request: URLRequest(url: url), body: .data(Data()))
 
         // 验证：总共的尝试次数应该是 1次初始 + 2次重试 = 3次
         XCTAssertEqual(attemptCount, maxRetries + 1)
@@ -58,7 +58,7 @@ final class OBSAPIClientTests: XCTestCase {
         let apiClient = OBSAPIClient(session: mockSession, maxRetryCount: 3, logger: OBSLogger(level: .none))
 
         do {
-            _ = try await apiClient.performUpload(request: URLRequest(url: url), from: Data())
+            _ = try await apiClient.perform(request: URLRequest(url: url), body: .data(Data()))
             XCTFail("Request should have failed but it succeeded.")
         } catch {
             // 成功捕获到错误

@@ -8,6 +8,7 @@ public protocol UploadRequest {
     var acl: ObjectACL? { get }
     var storageClass: StorageClass? { get }
     var contentMD5: String? { get }
+    var contentLength: Int64? { get }
     var metadata: [String: String]? { get }
     var serverSideEncryption: ServerSideEncryption? { get }
 }
@@ -22,6 +23,7 @@ public final class UploadObjectRequest: UploadRequest {
     public let acl: ObjectACL?
     public let storageClass: StorageClass?
     public let contentMD5: String?
+    public let contentLength: Int64?
     public let metadata: [String: String]?
     public let serverSideEncryption: ServerSideEncryption?
 
@@ -33,6 +35,7 @@ public final class UploadObjectRequest: UploadRequest {
         acl: ObjectACL? = nil,
         storageClass: StorageClass? = nil,
         contentMD5: String? = nil,
+        contentLength: Int64? = nil,
         metadata: [String: String]? = nil,
         serverSideEncryption: ServerSideEncryption? = nil,
         date: Date? = nil
@@ -45,6 +48,7 @@ public final class UploadObjectRequest: UploadRequest {
         self.acl = acl
         self.storageClass = storageClass
         self.contentMD5 = contentMD5
+        self.contentLength = contentLength
         self.metadata = metadata
         self.serverSideEncryption = serverSideEncryption
     }
@@ -60,6 +64,7 @@ public final class UploadFileRequest: UploadRequest {
     public let acl: ObjectACL?
     public let storageClass: StorageClass?
     public let contentMD5: String?
+    public let contentLength: Int64?
     public let metadata: [String: String]?
     public let serverSideEncryption: ServerSideEncryption?
 
@@ -71,6 +76,7 @@ public final class UploadFileRequest: UploadRequest {
         acl: ObjectACL? = nil,
         storageClass: StorageClass? = nil,
         contentMD5: String? = nil,
+        contentLength: Int64? = nil,
         metadata: [String: String]? = nil,
         serverSideEncryption: ServerSideEncryption? = nil
     ) {
@@ -81,6 +87,7 @@ public final class UploadFileRequest: UploadRequest {
         self.acl = acl
         self.storageClass = storageClass
         self.contentMD5 = contentMD5
+        self.contentLength = contentLength
         self.metadata = metadata
         self.serverSideEncryption = serverSideEncryption
     }

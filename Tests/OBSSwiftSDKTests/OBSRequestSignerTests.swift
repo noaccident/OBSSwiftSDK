@@ -38,8 +38,7 @@ final class OBSRequestSignerTests: XCTestCase {
         \(Utilities.md5Base64(for: MockData.fileData))
         text/plain
         \(fixedDateString)
-        \(canonicalizedHeaders)
-        \(canonicalizedResource)
+        \(canonicalizedHeaders)\(canonicalizedResource)
         """
         
         // 手动计算期望的签名
@@ -83,8 +82,7 @@ final class OBSRequestSignerTests: XCTestCase {
         
         
         \(fixedDateString)
-        \(canonicalizedHeaders)
-        \(canonicalizedResource)
+        \(canonicalizedHeaders)\(canonicalizedResource)
         """
         
         let key = SymmetricKey(data: MockData.temporaryCredentials.secretKey.data(using: .utf8)!)
@@ -137,7 +135,6 @@ final class OBSRequestSignerTests: XCTestCase {
         
         
         \(fixedDateString)
-        
         \(correctCanonicalizedResource)
         """
         

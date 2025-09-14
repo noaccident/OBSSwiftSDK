@@ -11,6 +11,8 @@ public struct OBSLogger: Sendable {
         /// Errors that might still allow the application to continue running.
         case error = 3
         
+        case none = 4
+        
         public static func < (lhs: OBSLogger.Level, rhs: OBSLogger.Level) -> Bool {
             return lhs.rawValue < rhs.rawValue
         }
@@ -21,7 +23,7 @@ public struct OBSLogger: Sendable {
 
     /// Initializes a new logger with a specified logging threshold.
     /// - Parameter level: The minimum level of messages to log.
-    public init(level: Level) {
+    public init(level: Level = .none) {
         self.level = level
     }
 
